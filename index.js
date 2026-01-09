@@ -27,6 +27,15 @@ mongoose.connect(process.env.MONGODB_URI)
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
 // Helper Functions
+const reactToMessage = async (ctx, emoji) => {
+  try {
+    await ctx.setMessageReaction(emoji);
+  } catch (error) {
+    // Silently fail if reactions not supported
+    console.log('Reaction not supported in this chat');
+  }
+};
+
 const getClient = async (telegramId) => {
   return await Client.findOne({ telegramId: telegramId.toString() });
 };
@@ -65,6 +74,7 @@ const mainMenu = Markup.keyboard([
 
 // Start Command
 bot.command('start', async (ctx) => {
+  await reactToMessage(ctx, '👋');
   const client = await getClient(ctx.from.id);
   
   if (!client) {
@@ -88,6 +98,7 @@ bot.command('start', async (ctx) => {
 
 // Set Token Command
 bot.command('settoken', async (ctx) => {
+  await reactToMessage(ctx, '🔑');
   const args = ctx.message.text.split(' ').slice(1);
   
   if (args.length === 0) {
@@ -125,6 +136,7 @@ bot.command('settoken', async (ctx) => {
       null,
       '✅ Token verified and saved successfully!\n\nUse /start to access the menu.'
     );
+    await reactToMessage(ctx, '✅');
   } catch (error) {
     await ctx.telegram.editMessageText(
       ctx.chat.id,
@@ -132,6 +144,7 @@ bot.command('settoken', async (ctx) => {
       null,
       '❌ Invalid token or API is unreachable.\n\nPlease check your token and try again.'
     );
+    await reactToMessage(ctx, '❌');
   }
 });
 
@@ -158,6 +171,7 @@ bot.command('seturl', async (ctx) => {
 
 // Jobs Handler
 bot.hears('📊 Jobs', async (ctx) => {
+  await reactToMessage(ctx, '👀');
   const client = await getClient(ctx.from.id);
   if (!client) return ctx.reply('❌ Please set your token first: /settoken');
   
@@ -259,6 +273,12 @@ bot.action(/run_job_(\d+)/, async (ctx) => {
   try {
     await makeApiRequest(client, `/jobs/${jobId}/run`, 'POST');
     await ctx.answerCbQuery('✅ Job started!', { show_alert: true });
+    
+    // React to the original message
+    try {
+      await ctx.telegram.setMessageReaction(ctx.chat.id, ctx.callbackQuery.message.message_id, '🚀');
+    } catch (e) {}
+    
     ctx.scene.reenter();
   } catch (error) {
     await ctx.answerCbQuery(`❌ ${error.error}`, { show_alert: true });
@@ -288,6 +308,12 @@ bot.action(/confirm_delete_job_(\d+)/, async (ctx) => {
   try {
     await makeApiRequest(client, `/jobs/${jobId}`, 'DELETE');
     await ctx.answerCbQuery('✅ Job deleted!', { show_alert: true });
+    
+    // React to the message
+    try {
+      await ctx.telegram.setMessageReaction(ctx.chat.id, ctx.callbackQuery.message.message_id, '🗑');
+    } catch (e) {}
+    
     await ctx.editMessageText('✅ Job deleted successfully!');
     setTimeout(() => ctx.reply('Choose an option:', mainMenu), 1000);
   } catch (error) {
@@ -297,6 +323,7 @@ bot.action(/confirm_delete_job_(\d+)/, async (ctx) => {
 
 // Targets Handler
 bot.hears('🎯 Targets', async (ctx) => {
+  await reactToMessage(ctx, '👀');
   const client = await getClient(ctx.from.id);
   if (!client) return ctx.reply('❌ Please set your token first: /settoken');
   
@@ -342,6 +369,7 @@ bot.action('targets_list', async (ctx) => {
 
 // Leads Handler
 bot.hears('👥 Leads', async (ctx) => {
+  await reactToMessage(ctx, '👀');
   const client = await getClient(ctx.from.id);
   if (!client) return ctx.reply('❌ Please set your token first: /settoken');
   
@@ -418,6 +446,7 @@ bot.action(/lead_(\d+)/, async (ctx) => {
 
 // Statistics
 bot.hears('📉 Statistics', async (ctx) => {
+  await reactToMessage(ctx, '👀');
   const client = await getClient(ctx.from.id);
   if (!client) return ctx.reply('❌ Please set your token first: /settoken');
   
@@ -445,6 +474,7 @@ bot.hears('📉 Statistics', async (ctx) => {
       null,
       message
     );
+    await reactToMessage(ctx, '✅');
   } catch (error) {
     await ctx.telegram.editMessageText(
       ctx.chat.id,
@@ -452,11 +482,13 @@ bot.hears('📉 Statistics', async (ctx) => {
       null,
       `❌ Error: ${error.error || 'Failed to fetch statistics'}`
     );
+    await reactToMessage(ctx, '❌');
   }
 });
 
 // Content Analysis
 bot.hears('📈 Content Analysis', async (ctx) => {
+  await reactToMessage(ctx, '👀');
   const client = await getClient(ctx.from.id);
   if (!client) return ctx.reply('❌ Please set your token first: /settoken');
   
@@ -466,6 +498,7 @@ bot.hears('📈 Content Analysis', async (ctx) => {
     const data = await makeApiRequest(client, '/content-analysis?page=1&per_page=5');
     
     if (data.data.length === 0) {
+      await reactToMessage(ctx, '🤷');
       return ctx.telegram.editMessageText(
         ctx.chat.id,
         loadingMsg.message_id,
@@ -491,6 +524,7 @@ bot.hears('📈 Content Analysis', async (ctx) => {
       null,
       message
     );
+    await reactToMessage(ctx, '✅');
   } catch (error) {
     await ctx.telegram.editMessageText(
       ctx.chat.id,
@@ -498,11 +532,13 @@ bot.hears('📈 Content Analysis', async (ctx) => {
       null,
       `❌ Error: ${error.error || 'Failed to fetch content analysis'}`
     );
+    await reactToMessage(ctx, '❌');
   }
 });
 
 // Settings
 bot.hears('⚙️ Settings', async (ctx) => {
+  await reactToMessage(ctx, '⚙️');
   const client = await getClient(ctx.from.id);
   
   if (!client) {
@@ -543,6 +579,11 @@ bot.action('confirm_delete_account', async (ctx) => {
   await ctx.answerCbQuery('👁️ Deleting account...');
   
   await Client.deleteOne({ telegramId: ctx.from.id.toString() });
+  
+  // React to the message
+  try {
+    await ctx.telegram.setMessageReaction(ctx.chat.id, ctx.callbackQuery.message.message_id, '👋');
+  } catch (e) {}
   
   await ctx.editMessageText(
     '✅ Account deleted successfully!\n\n' +
