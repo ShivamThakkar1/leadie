@@ -1,10 +1,11 @@
 // Install dependencies:
-// npm install telegraf axios mongoose dotenv
+// npm install telegraf axios mongoose dotenv express
 
 require('dotenv').config();
 const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
 const mongoose = require('mongoose');
+const express = require('express');
 
 // MongoDB Schema
 const clientSchema = new mongoose.Schema({
@@ -18,10 +19,8 @@ const clientSchema = new mongoose.Schema({
 const Client = mongoose.model('Client', clientSchema);
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-}).then(() => console.log('✅ MongoDB Connected'))
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('✅ MongoDB Connected'))
   .catch(err => console.error('❌ MongoDB Error:', err));
 
 // Initialize bot
@@ -607,6 +606,31 @@ bot.catch((err, ctx) => {
 // Launch Bot
 bot.launch().then(() => {
   console.log('🤖 Bot is running!');
+});
+
+// Create Express server for Render port binding
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+  res.json({
+    status: 'active',
+    bot: 'Telegram API Bot',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy',
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    bot: 'running'
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`🌐 Server running on port ${PORT}`);
 });
 
 // Enable graceful stop
